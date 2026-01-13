@@ -1,0 +1,150 @@
+{
+  "_description": "Example n8n webhook payloads for the Print Estimator",
+  "_usage": "Configure these in n8n as Webhook triggers to process print orders",
+  
+  "successful_order": {
+    "_scenario": "Complete valid order ready for processing",
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
+    "specs": {
+      "product_type": "business_cards",
+      "quantity": 500,
+      "size": "3.5x2",
+      "paper_stock": "14pt",
+      "sides": "double",
+      "finish": "matte",
+      "color_mode": "full_color",
+      "options": ["rounded_corners"],
+      "raw_input": "I need 500 business cards, double-sided, matte finish with rounded corners"
+    },
+    "validation": {
+      "is_valid": true,
+      "errors": [],
+      "warnings": ["Large orders may qualify for additional volume discounts - contact sales"]
+    },
+    "estimate": {
+      "base_price": 64.00,
+      "option_costs": {
+        "rounded_corners": 10.00
+      },
+      "quantity_discount": -5.18,
+      "subtotal": 68.82,
+      "tax": 0.00,
+      "total": 68.82,
+      "currency": "USD"
+    },
+    "source": "text"
+  },
+  
+  "validation_errors": {
+    "_scenario": "Order with validation errors - requires review",
+    "request_id": "550e8400-e29b-41d4-a716-446655440001",
+    "specs": {
+      "product_type": "custom_widget",
+      "quantity": 50,
+      "size": null,
+      "paper_stock": null,
+      "sides": null,
+      "finish": null,
+      "color_mode": null,
+      "options": [],
+      "raw_input": "50 custom widgets please"
+    },
+    "validation": {
+      "is_valid": false,
+      "errors": [
+        "Unknown product type 'custom_widget'. Valid types: banners, booklets, brochures, business_cards, envelopes, flyers, folders, letterhead, magazines, notepads, postcards, posters, stickers"
+      ],
+      "warnings": [
+        "Sides not specified - defaulting to single-sided for estimate",
+        "Finish not specified - defaulting to matte for estimate",
+        "Size not specified - using standard size for product type"
+      ]
+    },
+    "estimate": null,
+    "source": "text"
+  },
+  
+  "partial_extraction": {
+    "_scenario": "Some fields extracted, some missing - usable but needs confirmation",
+    "request_id": "550e8400-e29b-41d4-a716-446655440002",
+    "specs": {
+      "product_type": "flyers",
+      "quantity": 1000,
+      "size": null,
+      "paper_stock": null,
+      "sides": "double",
+      "finish": null,
+      "color_mode": "full_color",
+      "options": [],
+      "raw_input": "1000 double-sided full color flyers for our event"
+    },
+    "validation": {
+      "is_valid": true,
+      "errors": [],
+      "warnings": [
+        "Finish not specified - defaulting to matte for estimate",
+        "Size not specified - using standard size for product type"
+      ]
+    },
+    "estimate": {
+      "base_price": 240.00,
+      "option_costs": {},
+      "quantity_discount": -28.80,
+      "subtotal": 211.20,
+      "tax": 0.00,
+      "total": 211.20,
+      "currency": "USD"
+    },
+    "source": "text"
+  },
+  
+  "n8n_workflow_example": {
+    "_description": "Example n8n workflow structure for processing these webhooks",
+    "workflow_name": "Print Order Processing",
+    "nodes": [
+      {
+        "type": "Webhook",
+        "name": "Receive Print Order",
+        "parameters": {
+          "path": "print-orders",
+          "method": "POST"
+        }
+      },
+      {
+        "type": "Switch",
+        "name": "Check Validation",
+        "parameters": {
+          "rules": [
+            {"value": "={{$json.validation.is_valid}}", "operation": "equals", "value2": true}
+          ]
+        }
+      },
+      {
+        "type": "Slack",
+        "name": "Notify Invalid Order",
+        "parameters": {
+          "channel": "#print-orders-review",
+          "message": "⚠️ Order {{$json.request_id}} needs review:\n{{$json.validation.errors}}"
+        }
+      },
+      {
+        "type": "HTTP Request",
+        "name": "Create Order in System",
+        "parameters": {
+          "url": "https://your-erp.com/api/orders",
+          "method": "POST",
+          "body": "={{$json}}"
+        }
+      },
+      {
+        "type": "Email",
+        "name": "Send Confirmation",
+        "parameters": {
+          "to": "customer@example.com",
+          "subject": "Your Print Order Estimate - ${{$json.estimate.total}}",
+          "body": "Thank you for your order!"
+        }
+      }
+    ]
+  }
+}

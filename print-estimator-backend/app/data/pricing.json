@@ -1,0 +1,142 @@
+{
+  "_comment": "Print Estimator Pricing Configuration - Version 1.0",
+  "_note": "All prices in USD. Modify this file to adjust pricing without code changes.",
+  
+  "products": {
+    "business_cards": {
+      "base_price_per_unit": 0.08,
+      "minimum_quantity": 100,
+      "minimum_price": 25.00,
+      "standard_size": "3.5x2 inches"
+    },
+    "flyers": {
+      "base_price_per_unit": 0.15,
+      "minimum_quantity": 50,
+      "minimum_price": 30.00,
+      "standard_size": "8.5x11 inches"
+    },
+    "posters": {
+      "base_price_per_unit": 2.50,
+      "minimum_quantity": 1,
+      "minimum_price": 15.00,
+      "standard_size": "18x24 inches"
+    },
+    "brochures": {
+      "base_price_per_unit": 0.35,
+      "minimum_quantity": 25,
+      "minimum_price": 35.00,
+      "standard_size": "8.5x11 tri-fold"
+    },
+    "postcards": {
+      "base_price_per_unit": 0.12,
+      "minimum_quantity": 100,
+      "minimum_price": 28.00,
+      "standard_size": "4x6 inches"
+    },
+    "stickers": {
+      "base_price_per_unit": 0.20,
+      "minimum_quantity": 50,
+      "minimum_price": 20.00,
+      "standard_size": "2x2 inches"
+    },
+    "banners": {
+      "base_price_per_unit": 25.00,
+      "minimum_quantity": 1,
+      "minimum_price": 45.00,
+      "standard_size": "2x6 feet"
+    },
+    "booklets": {
+      "base_price_per_unit": 3.50,
+      "minimum_quantity": 10,
+      "minimum_price": 50.00,
+      "standard_size": "5.5x8.5 inches, 8 pages"
+    },
+    "default": {
+      "base_price_per_unit": 0.50,
+      "minimum_quantity": 1,
+      "minimum_price": 10.00,
+      "standard_size": "varies"
+    }
+  },
+  
+  "options": {
+    "rounded_corners": {
+      "price": 10.00,
+      "type": "flat",
+      "description": "Round all four corners"
+    },
+    "foil_stamping": {
+      "price": 0.05,
+      "type": "per_unit",
+      "description": "Gold or silver foil accent",
+      "adds_days": 3
+    },
+    "embossing": {
+      "price": 0.08,
+      "type": "per_unit",
+      "description": "Raised texture effect",
+      "adds_days": 3
+    },
+    "spot_uv": {
+      "price": 15.00,
+      "type": "flat",
+      "description": "Glossy UV coating on specific areas"
+    },
+    "die_cut": {
+      "price": 25.00,
+      "type": "flat",
+      "description": "Custom shape cutting",
+      "adds_days": 2
+    },
+    "hole_punch": {
+      "price": 5.00,
+      "type": "flat",
+      "description": "Standard hole punch"
+    },
+    "lamination": {
+      "price": 0.03,
+      "type": "per_unit",
+      "description": "Protective laminate coating"
+    },
+    "scoring": {
+      "price": 8.00,
+      "type": "flat",
+      "description": "Fold lines for easy folding"
+    },
+    "perforation": {
+      "price": 8.00,
+      "type": "flat",
+      "description": "Tear-off sections"
+    }
+  },
+  
+  "modifiers": {
+    "double_sided": 1.6,
+    "gloss_finish": 1.15,
+    "matte_finish": 1.0,
+    "satin_finish": 1.08,
+    "soft_touch_finish": 1.25,
+    "uncoated_finish": 0.95,
+    "full_color": 1.0,
+    "black_white": 0.6,
+    "spot_color": 0.8
+  },
+  
+  "quantity_discounts": [
+    {"min_quantity": 250, "discount": 0.03},
+    {"min_quantity": 500, "discount": 0.07},
+    {"min_quantity": 1000, "discount": 0.12},
+    {"min_quantity": 2500, "discount": 0.15},
+    {"min_quantity": 5000, "discount": 0.20},
+    {"min_quantity": 10000, "discount": 0.25}
+  ],
+  
+  "tax_rate": 0.0,
+  
+  "production_times": {
+    "standard": 5,
+    "rush": 2,
+    "same_day": 0,
+    "_unit": "business_days"
+  }
+}

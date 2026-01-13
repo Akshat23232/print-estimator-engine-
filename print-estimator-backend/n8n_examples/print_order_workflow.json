@@ -1,0 +1,328 @@
+{
+  "_documentation": {
+    "description": "Complete n8n workflow for Print Order Processing with Human-in-the-Loop",
+    "version": "1.0.0",
+    "author": "Print Estimator Backend",
+    "purpose": "Demonstrates order routing based on validation results",
+    "import_instructions": [
+      "1. Open n8n workflow editor",
+      "2. Click the '...' menu → Import from File",
+      "3. Select this JSON file",
+      "4. Configure credentials (Slack, Email, etc.)",
+      "5. Activate the workflow"
+    ]
+  },
+  
+  "name": "Print Order Processing",
+  "nodes": [
+    {
+      "id": "webhook-trigger",
+      "name": "Receive Print Order",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300],
+      "parameters": {
+        "path": "print-orders",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "notes": "Receives order data from Print Estimator backend. Payload includes specs, validation, and estimate."
+    },
+    
+    {
+      "id": "check-blockers",
+      "name": "Has Blocking Errors?",
+      "type": "n8n-nodes-base.if",
+      "position": [450, 300],
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.validation.is_valid }}",
+              "value2": false
+            }
+          ]
+        }
+      },
+      "notes": "Routes orders with validation errors to CSR review queue"
+    },
+    
+    {
+      "id": "check-warnings",
+      "name": "Has Warnings?",
+      "type": "n8n-nodes-base.if",
+      "position": [650, 400],
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.validation.warnings.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "notes": "Orders with warnings need customer confirmation before proceeding"
+    },
+    
+    {
+      "id": "csr-review-queue",
+      "name": "Send to CSR Review",
+      "type": "n8n-nodes-base.slack",
+      "position": [650, 200],
+      "parameters": {
+        "channel": "#print-orders-review",
+        "text": "🚨 *Order Requires Review*\n\n*Request ID:* {{ $json.request_id }}\n*Product:* {{ $json.specs.product_type }}\n*Quantity:* {{ $json.specs.quantity }}\n\n*Errors:*\n{{ $json.validation.errors.join('\\n• ') }}\n\n*Original Request:*\n```{{ $json.specs.raw_input }}```",
+        "attachments": [],
+        "otherOptions": {}
+      },
+      "notes": "CSR team reviews orders with blocking errors. Can manually approve or reject."
+    },
+    
+    {
+      "id": "wait-csr-decision",
+      "name": "Wait for CSR Decision",
+      "type": "n8n-nodes-base.wait",
+      "position": [850, 200],
+      "parameters": {
+        "resume": "webhook",
+        "options": {
+          "webhookSuffix": "/csr-decision/{{ $json.request_id }}"
+        }
+      },
+      "notes": "Pauses workflow until CSR submits decision via callback webhook"
+    },
+    
+    {
+      "id": "check-csr-approved",
+      "name": "CSR Approved?",
+      "type": "n8n-nodes-base.if",
+      "position": [1050, 200],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.decision }}",
+              "value2": "approved"
+            }
+          ]
+        }
+      }
+    },
+    
+    {
+      "id": "customer-confirmation",
+      "name": "Send Customer Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [850, 400],
+      "parameters": {
+        "fromEmail": "orders@printshop.com",
+        "toEmail": "={{ $json.customer_email || 'customer@example.com' }}",
+        "subject": "Please Confirm Your Print Order #{{ $json.request_id }}",
+        "text": "Hello,\n\nThank you for your print order request.\n\nOrder Summary:\n- Product: {{ $json.specs.product_type }}\n- Quantity: {{ $json.specs.quantity }}\n- Estimated Total: ${{ $json.estimate.total }}\n\nPlease note the following:\n{{ $json.validation.warnings.join('\\n• ') }}\n\nClick here to confirm: [CONFIRM_LINK]\nClick here to cancel: [CANCEL_LINK]\n\nBest regards,\nThe Print Shop Team"
+      },
+      "notes": "Sends confirmation email for orders with warnings. Customer must acknowledge."
+    },
+    
+    {
+      "id": "wait-customer-confirmation",
+      "name": "Wait for Customer",
+      "type": "n8n-nodes-base.wait",
+      "position": [1050, 400],
+      "parameters": {
+        "resume": "webhook",
+        "options": {
+          "webhookSuffix": "/customer-confirm/{{ $json.request_id }}"
+        }
+      },
+      "notes": "Waits for customer to click confirm or cancel link"
+    },
+    
+    {
+      "id": "check-customer-confirmed",
+      "name": "Customer Confirmed?",
+      "type": "n8n-nodes-base.if",
+      "position": [1250, 400],
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "value2": "confirmed"
+            }
+          ]
+        }
+      }
+    },
+    
+    {
+      "id": "auto-approve",
+      "name": "Auto-Approve Order",
+      "type": "n8n-nodes-base.set",
+      "position": [850, 500],
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "approval_status",
+              "value": "auto_approved"
+            },
+            {
+              "name": "approval_reason",
+              "value": "Clean order - no errors or warnings"
+            }
+          ]
+        }
+      },
+      "notes": "Orders with no issues are automatically approved"
+    },
+    
+    {
+      "id": "create-production-order",
+      "name": "Create Production Order",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1450, 400],
+      "parameters": {
+        "method": "POST",
+        "url": "https://your-mis.com/api/orders",
+        "authentication": "headerAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "external_id",
+              "value": "={{ $json.request_id }}"
+            },
+            {
+              "name": "product_type",
+              "value": "={{ $json.specs.product_type }}"
+            },
+            {
+              "name": "quantity",
+              "value": "={{ $json.specs.quantity }}"
+            },
+            {
+              "name": "specifications",
+              "value": "={{ JSON.stringify($json.specs) }}"
+            },
+            {
+              "name": "price",
+              "value": "={{ $json.estimate.total }}"
+            },
+            {
+              "name": "print_method",
+              "value": "={{ $json.estimate.print_method }}"
+            }
+          ]
+        }
+      },
+      "notes": "Sends approved order to MIS/ERP system for production"
+    },
+    
+    {
+      "id": "send-confirmation-email",
+      "name": "Send Order Confirmation",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1650, 400],
+      "parameters": {
+        "fromEmail": "orders@printshop.com",
+        "toEmail": "={{ $json.customer_email || 'customer@example.com' }}",
+        "subject": "Order Confirmed! #{{ $json.request_id }}",
+        "text": "Great news! Your print order has been confirmed.\n\nOrder Details:\n- Product: {{ $json.specs.product_type }}\n- Quantity: {{ $json.specs.quantity }}\n- Total: ${{ $json.estimate.total }}\n- Print Method: {{ $json.estimate.print_method }}\n\nYou will receive tracking information once your order ships.\n\nThank you for your business!"
+      }
+    },
+    
+    {
+      "id": "reject-order",
+      "name": "Reject Order",
+      "type": "n8n-nodes-base.emailSend",
+      "position": [1250, 200],
+      "parameters": {
+        "fromEmail": "orders@printshop.com",
+        "toEmail": "={{ $json.customer_email || 'customer@example.com' }}",
+        "subject": "Unable to Process Order #{{ $json.request_id }}",
+        "text": "We're sorry, but we were unable to process your print order.\n\nReason: {{ $json.rejection_reason || 'Order could not be fulfilled as specified' }}\n\nPlease contact us to discuss alternatives.\n\nBest regards,\nThe Print Shop Team"
+      },
+      "notes": "Sends rejection notification when order cannot be fulfilled"
+    },
+    
+    {
+      "id": "log-rejection",
+      "name": "Log Rejection",
+      "type": "n8n-nodes-base.set",
+      "position": [1450, 200],
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "final_status",
+              "value": "rejected"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  
+  "connections": {
+    "Receive Print Order": {
+      "main": [[{ "node": "Has Blocking Errors?", "type": "main", "index": 0 }]]
+    },
+    "Has Blocking Errors?": {
+      "main": [
+        [{ "node": "Send to CSR Review", "type": "main", "index": 0 }],
+        [{ "node": "Has Warnings?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send to CSR Review": {
+      "main": [[{ "node": "Wait for CSR Decision", "type": "main", "index": 0 }]]
+    },
+    "Wait for CSR Decision": {
+      "main": [[{ "node": "CSR Approved?", "type": "main", "index": 0 }]]
+    },
+    "CSR Approved?": {
+      "main": [
+        [{ "node": "Create Production Order", "type": "main", "index": 0 }],
+        [{ "node": "Reject Order", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Warnings?": {
+      "main": [
+        [{ "node": "Send Customer Confirmation", "type": "main", "index": 0 }],
+        [{ "node": "Auto-Approve Order", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send Customer Confirmation": {
+      "main": [[{ "node": "Wait for Customer", "type": "main", "index": 0 }]]
+    },
+    "Wait for Customer": {
+      "main": [[{ "node": "Customer Confirmed?", "type": "main", "index": 0 }]]
+    },
+    "Customer Confirmed?": {
+      "main": [
+        [{ "node": "Create Production Order", "type": "main", "index": 0 }],
+        [{ "node": "Reject Order", "type": "main", "index": 0 }]
+      ]
+    },
+    "Auto-Approve Order": {
+      "main": [[{ "node": "Create Production Order", "type": "main", "index": 0 }]]
+    },
+    "Create Production Order": {
+      "main": [[{ "node": "Send Order Confirmation", "type": "main", "index": 0 }]]
+    },
+    "Reject Order": {
+      "main": [[{ "node": "Log Rejection", "type": "main", "index": 0 }]]
+    }
+  },
+  
+  "settings": {
+    "executionOrder": "v1"
+  },
+  
+  "staticData": null,
+  "tags": ["print", "orders", "human-in-loop"],
+  "triggerCount": 0,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+}

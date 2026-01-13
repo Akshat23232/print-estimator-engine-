@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      # Required: Your OpenAI-compatible API key
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # Optional: Custom LLM endpoint (e.g., Azure OpenAI, local Ollama)
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      # Optional: n8n webhook for order processing
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Mount for development hot-reload
+      # NOTE: Remove in production
+      - ./app:/app/app:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # TODO: Add these services for production
+  # 
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   # Purpose: Rate limiting, response caching
+  #
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: print_estimator
+  #     POSTGRES_USER: app
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   # Purpose: Order persistence, audit logging
+
+# volumes:
+#   postgres_data:
