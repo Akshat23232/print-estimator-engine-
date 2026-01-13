@@ -1,73 +1,264 @@
-# Welcome to your Lovable project
+AI Print Estimator & Order Intake Engine
+Overview
 
-## Project info
+The AI Print Estimator & Order Intake Engine is a backend-first system designed to convert unstructured print job requests into validated, auditable, and workflow-ready print estimates.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+The system accepts print orders in natural language (text/email-like input) and metadata from PDFs or images, extracts structured specifications using an LLM, applies deterministic pricing rules, validates feasibility, and orchestrates human-in-the-loop workflows using n8n.
 
-## How can I edit this code?
+This project prioritizes clarity, correctness, and explainability over feature bloat, in line with real-world production systems.
 
-There are several ways of editing your application.
+Key Design Principles
+1. LLM for Understanding, Not Pricing
 
-**Use Lovable**
+AI is used only for extracting structured specifications from unstructured input.
+All pricing decisions are rule-based and deterministic to ensure:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Auditability
 
-Changes made via Lovable will be committed automatically to this repo.
+Predictability
 
-**Use your preferred IDE**
+Business control
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+This avoids hallucinated pricing and keeps cost logic transparent.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+2. Separation of Concerns
 
-Follow these steps:
+The system is intentionally modular:
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+Intake → Accept unstructured input
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+Extraction → Convert to structured schema (LLM)
 
-# Step 3: Install the necessary dependencies.
-npm i
+Validation → Detect feasibility issues
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+Pricing → Deterministic cost calculation
 
-**Edit a file directly in GitHub**
+Workflow → Human-in-loop orchestration (n8n)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Each layer can evolve independently without affecting others.
 
-**Use GitHub Codespaces**
+3. Validation-First Architecture
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Instead of failing silently, the system explicitly flags issues such as:
 
-## What technologies are used for this project?
+Missing specifications
 
-This project is built with:
+Invalid sizes
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Low-resolution artwork (DPI thresholds)
 
-## How can I deploy this project?
+Turnaround conflicts (rush vs standard)
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Validation results are categorized into warnings vs blocking errors, enabling informed human review.
 
-## Can I connect a custom domain to my Lovable project?
+Architecture Overview
+Frontend (React)
+   │
+   ▼
+FastAPI Backend
+   ├── Intake API (/intake)
+   ├── LLM Spec Extraction
+   ├── Validation Layer
+   ├── Pricing Engine (rule-based)
+   └── Webhook Trigger
+           │
+           ▼
+        n8n Workflow
 
-Yes, you can!
+Technology Stack
+Backend
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+FastAPI (Python) – API layer & business logic
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Pydantic – Schema enforcement
+
+Docker & Docker Compose – Local deployment
+
+Swagger / OpenAPI – API documentation
+
+Frontend
+
+React + TypeScript
+
+Intake UI for text / PDF / image metadata
+
+Results view for pricing & validation feedback
+
+AI Layer
+
+LLM used with a strict structured prompt
+
+Enforces JSON output schema
+
+Handles ambiguity gracefully
+
+Workflow
+
+n8n – Human-in-the-loop orchestration
+
+CSR review, approval, rejection, escalation
+
+Order Intake
+
+The system accepts:
+
+Plain text requests (also covers email body input)
+
+PDF RFQs (metadata-based, OCR marked as future enhancement)
+
+Image uploads (metadata + DPI validation)
+
+Partial implementations for PDF/image content extraction are explicitly documented, prioritizing correctness over pretending full OCR support.
+
+Pricing Engine
+
+Pricing is calculated using a rule-based engine driven by configuration:
+
+Cost Components
+
+Material cost
+
+Print method decision (digital vs offset)
+
+Setup cost
+
+Finishing cost
+
+Quantity-based discounts
+
+Margin
+
+Rush fees
+
+Tax
+
+Final total
+
+Print Method Logic
+
+Digital for low-volume jobs (setup cost dominates)
+
+Offset for high-volume jobs (economies of scale)
+
+All thresholds are documented and configurable.
+
+Validation Layer
+
+Validation checks include:
+
+Missing required fields
+
+Invalid dimensions
+
+Low-resolution artwork (DPI thresholds: 200/300)
+
+Turnaround conflicts (rush vs slow options)
+
+Results are returned as:
+
+Warnings → Can proceed with review
+
+Blockers → Require correction or rejection
+
+Workflow Orchestration (n8n)
+
+After estimation, a webhook triggers an n8n workflow that supports:
+
+CSR review
+
+Customer approval
+
+Auto-rejection for blocking issues
+
+Escalation when required
+
+Final handoff to MIS / ERP (mocked)
+
+The workflow JSON is included for inspection and extension.
+
+Demo Mode vs Production Mode
+Demo Mode (Preview)
+
+Automatically enabled when backend is not reachable
+
+Uses realistic mock responses
+
+Mirrors backend schemas exactly
+
+Clearly indicated in the UI
+
+Production Mode
+
+Backend runs locally via Docker Compose
+
+Real FastAPI endpoints
+
+Deterministic pricing & validation
+
+No mock logic in production paths
+
+This separation ensures honest previews without misleading behavior.
+
+API Documentation
+
+Once the backend is running, Swagger docs are available at:
+
+http://localhost:8000/docs
+
+Running Locally
+Prerequisites
+
+Docker
+
+Docker Compose
+
+Start the Backend
+docker-compose up --build
+
+Access API
+http://localhost:8000
+
+Access API Docs
+http://localhost:8000/docs
+
+Testing
+
+Basic unit tests are included for:
+
+Pricing calculations
+
+Validation logic
+
+The focus is on correctness of business rules rather than exhaustive coverage.
+
+Known Limitations & Future Improvements
+
+Full OCR for PDFs and images
+
+Persistent storage for orders and estimates
+
+Advanced artwork analysis
+
+ERP/MIS real integrations
+
+Authentication & authorization
+
+Pricing versioning UI
+
+These are intentionally scoped out and documented.
+
+Why This Approach
+
+This project was built to demonstrate:
+
+Correct use of AI (assistive, not authoritative)
+
+Deterministic business logic
+
+Clear validation feedback
+
+Production-ready architecture thinking
+
+Honest documentation of tradeoffs
+
+Partial implementations are intentional and documented, in line with real-world system design.
